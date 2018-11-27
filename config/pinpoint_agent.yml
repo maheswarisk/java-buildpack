@@ -18,3 +18,4 @@
 version: 
 repository_root: https://github.com/naver/pinpoint/releases/download/1.8.0/pinpoint-agent-1.8.0.tar.gz
 default_agent_name: $(jq -r -n "$VCAP_APPLICATION | .application_name")
+enabled: true
