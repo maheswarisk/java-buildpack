@@ -16,7 +16,7 @@
 # limitations under the License.
 
 require 'fileutils'
-require 'java_buildpack/component/versioned_dependency_component'
+require 'java_buildpack/component/base_component'
 require 'java_buildpack/framework'
 require 'java_buildpack/util/to_b'
 
@@ -24,7 +24,7 @@ module JavaBuildpack
   module Framework
 
     # Encapsulates the functionality for enabling zero-touch Introscope support.
-    class PinpointAgent < JavaBuildpack::Component::VersionedDependencyComponent
+    class PinpointAgent < JavaBuildpack::Component::BaseComponent
 
       # (see JavaBuildpack::Component::BaseComponent#compile)
       def compile
@@ -35,11 +35,10 @@ module JavaBuildpack
       # (see JavaBuildpack::Component::BaseComponent#release)
       def release
         java_opts   = @droplet.java_opts
-
         java_opts
           .add_javaagent(agent_jar)
  
-        add_url(credentials, java_opts)
+       
       end
 
       protected
@@ -63,40 +62,21 @@ module JavaBuildpack
         @droplet.sandbox + 'pinpoint-agent-1.8.0.jar'
       end
 
-      def add_url(credentials, java_opts)
-        agent_manager = agent_manager_url(credentials)
-
-      end
+      
 	  
-	  def pinpointconf
+      def pinpointconf
         @droplet.sandbox + 'pinpoint.config'
       end
 	  
-	  def write_configuration(servers, groups)
-        pinpointconf.open(File::APPEND | File::WRONLY) do |f|
-          write_prologue f
-          servers.each_with_index { |server, index| write_server f, index, server }
-          f.write <<~TOKEN
-            }
-
-            VirtualToken = {
-          TOKEN
-          groups.each_with_index { |group, index| write_group f, index, group }
-          write_epilogue f, groups
-        end
+    def write_configuration(servers, groups)
+        
       end
 
 
       # Parse the agent manager url, split first by '://', and then with ':'
       # components is of the format [host, port, socket_factory]
       def parse_url(url)
-        components = url.split('://')
-        components.unshift('') if components.length == 1
-        components[1] = components[1].split(':')
-        components.flatten!
-        components.push(protocol_mapping(components[0]))
-        components.shift
-        components
+       
       end
 
       def agent_name(credentials)
