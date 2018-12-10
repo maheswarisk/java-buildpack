@@ -16,36 +16,36 @@
 # limitations under the License.
 
 require 'fileutils'
-require 'java_buildpack/component/base_component'
+require 'java_buildpack/component/versioned_dependency_component'
 require 'java_buildpack/framework'
-require 'java_buildpack/util/to_b'
+require 'java_buildpack/util/qualify_path'
 
 module JavaBuildpack
   module Framework
 
-    # Encapsulates the functionality for enabling zero-touch Introscope support.
+    # Encapsulates the functionality for enabling zero-touch Dynatrace support.
     class PinpointAgent < JavaBuildpack::Component::VersionedDependencyComponent
+      include JavaBuildpack::Util
 
       # (see JavaBuildpack::Component::BaseComponent#compile)
       def compile
-	FileUtils.mkdir_p logs_dir
-        download
-	@droplet.copy_resources
+        download(@version, @uri) { |file| expand file }
+        @droplet.copy_resources
       end
 
       # (see JavaBuildpack::Component::BaseComponent#release)
       def release
-        java_opts   = @droplet.java_opts
-        java_opts
-          .add_javaagent(agent_jar)      
+        @droplet.java_opts.add_agentpath_with_props(agent_path, name: agent_name, server: server)
       end
 
-      protected
+      #protected
 
       # (see JavaBuildpack::Component::VersionedDependencyComponent#supports?)
-      def supports?
-        @application.services.one_service? FILTER, %w[agent_manager_url url]
-      end
+      #def supports?
+      #  (@application.services.one_service? FILTER, 'server') &&
+      #  !(@application.services.one_service? FILTER, 'tenant') &&
+      #  !(@application.services.one_service? FILTER, 'tenanttoken')
+      #end
 
       private
 
@@ -53,41 +53,43 @@ module JavaBuildpack
 
       private_constant :FILTER
 
-      def agent_host_name
-        @application.details['application_name']
+      def agent_dir
+        @droplet.sandbox + 'agent'
       end
 
-      def agent_jar
-        @droplet.sandbox + 'pinpoint-agent-1.8.0.jar'
-      end
-	    
-      def logs_dir
-    	@droplet.sandbox + 'logs'
+      def agent_path
+        agent_dir + 'pinpoint-bootstrap-1.8.0.jar'
       end
 
-        # @macro base_component_release
-      def release
-       @droplet.java_opts
-        .add_javaagent(@droplet.sandbox + jar_name)
-        .add_system_property('pinpoint.agentId', "'#{agent_id}'")       
-        .add_system_property('pinpoint.applicationName.', "'#{application_name}'")
-        .add_system_property('pinpoint.config.log_file_path', logs_dir)
-  end
-	  
-      def pinpointconf
-        @droplet.sandbox + 'pinpoint.config'
-      end
-	  
-
-
-  
-      def agent_profile
-        @droplet.sandbox + 'pinpoint.config'
+      def agent_name
+        @configuration['default_agent_name'] || "#{@application.details['application_name']}_#{profile_name}"
       end
 
-         
+      def expand(file)
+        with_timing "Expanding Pinpoint agent to #{@droplet.sandbox.relative_path_from(@droplet.root)}" do
+          Dir.mktmpdir do |root|
+            root_path = Pathname.new(root)
+            shell "unzip -qq #{file.path} -d #{root_path} 2>&1"
+            unpack_agent root_path
+          end
+        end
+      end
+
       
+
+      def unpack_agent(root)
+        FileUtils.mkdir_p(agent_dir)        
+		FileUtils.mv(root + 'agent' +  'boot', agent_dir)
+		FileUtils.mv(root + 'agent' + 'lib', agent_dir)
+		FileUtils.mv(root + 'agent' +  'plugin', agent_dir)
+		FileUtils.mv(root + 'agent' +  'script', agent_dir)
+		FileUtils.mv(root + 'agent' + 'tools', agent_dir)
+		FileUtils.mv(root + 'agent' + 'pinpoint.config', agent_dir)
+        #FileUtils.mv(root + 'agent' + agent_unpack_path + lib_name, agent_dir)
+      end
+
       
     end
+
   end
 end
