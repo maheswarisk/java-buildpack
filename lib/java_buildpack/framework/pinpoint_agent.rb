@@ -50,12 +50,18 @@ module JavaBuildpack
       #  !(@application.services.one_service? FILTER, 'tenant') &&
       #  !(@application.services.one_service? FILTER, 'tenanttoken')
       end
+	    
+	    
 
       private
 
       FILTER = /pinpoint/
 
       private_constant :FILTER
+	    
+      def pinpointconf
+        @droplet.sandbox + 'pinpoint.config'
+      end
 
       def agent_dir
         @droplet.sandbox + 'agent'
