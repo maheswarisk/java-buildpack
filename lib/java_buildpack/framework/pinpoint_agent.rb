@@ -41,11 +41,11 @@ module JavaBuildpack
       #protected
 
       # (see JavaBuildpack::Component::VersionedDependencyComponent#supports?)
-      #def supports?
+      def supports?
       #  (@application.services.one_service? FILTER, 'server') &&
       #  !(@application.services.one_service? FILTER, 'tenant') &&
       #  !(@application.services.one_service? FILTER, 'tenanttoken')
-      #end
+      end
 
       private
 
