@@ -85,11 +85,7 @@ module JavaBuildpack
         @droplet.sandbox + 'pinpoint.config'
       end
 
-      def default_process_name(credentials)
-        credentials['agent_default_process_name'] || @application.details['application_name']
-      end
-
-      
+         
       
       
     end
