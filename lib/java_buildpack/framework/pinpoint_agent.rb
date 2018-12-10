@@ -29,13 +29,13 @@ module JavaBuildpack
 
       # (see JavaBuildpack::Component::BaseComponent#compile)
       def compile
-        download(@version, @uri) { |file| expand file }
+        download(@uri) { |file| expand file }
         @droplet.copy_resources
       end
 
       # (see JavaBuildpack::Component::BaseComponent#release)
       def release
-        @droplet.java_opts.add_agentpath_with_props(agent_path, name: agent_name, server: server)
+        @droplet.java_opts.add_agentpath_with_props(agent_path, agent_id: agent_name, app_name: app_name)
       end
 
       #protected
@@ -64,12 +64,16 @@ module JavaBuildpack
       def agent_name
         @configuration['default_agent_name'] || "#{@application.details['application_name']}_#{profile_name}"
       end
+	    
+      def app_name
+        @configuration['default_agent_name'] || "#{@application.details['application_name']}_#{profile_name}"
+      end
 
       def expand(file)
         with_timing "Expanding Pinpoint agent to #{@droplet.sandbox.relative_path_from(@droplet.root)}" do
           Dir.mktmpdir do |root|
             root_path = Pathname.new(root)
-            shell "unzip -qq #{file.path} -d #{root_path} 2>&1"
+            shell "tar -xvf  #{file.path} -d #{root_path} 2>&1"
             unpack_agent root_path
           end
         end
