@@ -35,7 +35,11 @@ module JavaBuildpack
 
       # (see JavaBuildpack::Component::BaseComponent#release)
       def release
-        @droplet.java_opts.add_agentpath_with_props(agent_path, agent_id: agent_name, app_name: app_name)
+        @droplet
+		.java_opts.add_agent(agent_path)
+	        .add_system_property('-Dpinpoint.agentId', "pcf_agent")
+	        .add_system_property('-Dpinpoint.applicationName', "pcfapp")     
+	     
       end
 
       #protected
