@@ -24,21 +24,20 @@ module JavaBuildpack
   module Framework
 
     # Encapsulates the functionality for enabling zero-touch Introscope support.
-    class PinpointAgent < JavaBuildpack::Component::BaseComponent
+    class PinpointAgent < JavaBuildpack::Component::VersionedDependencyComponent
 
       # (see JavaBuildpack::Component::BaseComponent#compile)
       def compile
-        download_tar
-        @droplet.copy_resources
+	FileUtils.mkdir_p logs_dir
+        download_jar
+	@droplet.copy_resources
       end
 
       # (see JavaBuildpack::Component::BaseComponent#release)
       def release
         java_opts   = @droplet.java_opts
         java_opts
-          .add_javaagent(agent_jar)
- 
-       
+          .add_javaagent(agent_jar)      
       end
 
       protected
@@ -55,34 +54,33 @@ module JavaBuildpack
       private_constant :FILTER
 
       def agent_host_name
-        @application.details['application_uris'][0]
+        @application.details['application_name']
       end
 
       def agent_jar
         @droplet.sandbox + 'pinpoint-agent-1.8.0.jar'
       end
+	    
+      def logs_dir
+    	@droplet.sandbox + 'logs'
+      end
 
-      
+        # @macro base_component_release
+      def release
+       @droplet.java_opts
+        .add_javaagent(@droplet.sandbox + jar_name)
+        .add_system_property('pinpoint.agentId', "'#{agent_id}'")       
+        .add_system_property('pinpoint.applicationName.', "'#{application_name}'")
+        .add_system_property('pinpoint.config.log_file_path', logs_dir)
+  end
 	  
       def pinpointconf
         @droplet.sandbox + 'pinpoint.config'
       end
 	  
-    def write_configuration(servers, groups)
-        
-      end
 
 
-      # Parse the agent manager url, split first by '://', and then with ':'
-      # components is of the format [host, port, socket_factory]
-      def parse_url(url)
-       
-      end
-
-      def agent_name(credentials)
-        credentials['agent_name'] || @configuration['default_agent_name']
-      end
-
+  
       def agent_profile
         @droplet.sandbox + 'pinpoint.config'
       end
