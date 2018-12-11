@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Configuration for the Pinpoint framework
+# Configuration for the Dynatrace SaaS/Managed framework
 ---
-enabled: true 
-repository_root: https://github.com/naver/pinpoint/releases/download/1.8.0/pinpoint-agent-1.8.0.tar.gz
+version: 1.+
+repository_root: https://raw.githubusercontent.com/maheswarisk/pinpoint_agent_repo-1/master
 default_agent_name: $(jq -r -n "$VCAP_APPLICATION | .application_name")
+default_application_name: $(jq -r -n "$VCAP_APPLICATION | .application_name")
