@@ -18,91 +18,97 @@
 require 'fileutils'
 require 'java_buildpack/component/versioned_dependency_component'
 require 'java_buildpack/framework'
-require 'java_buildpack/util/qualify_path'
+require 'java_buildpack/util/cache/internet_availability'
+require 'java_buildpack/util/to_b'
+require 'json'
 
 module JavaBuildpack
   module Framework
 
-    # Encapsulates the functionality for enabling zero-touch Dynatrace support.
+    # Encapsulates the functionality for enabling zero-touch Dynatrace SaaS/Managed support.
     class PinpointAgent < JavaBuildpack::Component::VersionedDependencyComponent
-      include JavaBuildpack::Util
+
+
+      # Creates an instance
+      #
+      # @param [Hash] context a collection of utilities used the component
+      def initialize(context)
+        super(context)
+        @logger = JavaBuildpack::Logging::LoggerFactory.instance.get_logger PinpointAgent
+      end
+
 
       # (see JavaBuildpack::Component::BaseComponent#compile)
       def compile
-        download(@uri) { |file| expand file }
+        download_zip(false, @droplet.sandbox, 'Pinpoint Agent')
         @droplet.copy_resources
+
+        credentials = @application.services.find_service(FILTER)['credentials']
+        pinpoint_config_uri=credentials['pinpoint.config.uri']
+        @logger.info { "pinpoint_config_uri  #{pinpoint_config_uri}" }
+
+        download_pinpoint_config(pinpoint_config_uri)
+        #@logger.info { "pinpoint_config_uri  #{pinpoint_config_uri}" }
+        @droplet.copy_resources
+
       end
 
       # (see JavaBuildpack::Component::BaseComponent#release)
       def release
-        @droplet
-		.java_opts.add_agent(agent_path)
-	        .add_system_property('-Dpinpoint.agentId', "pcf_agent")
-	        .add_system_property('-Dpinpoint.applicationName', "pcfapp")     
-	     
+        @droplet.java_opts.add_javaagent(@droplet.sandbox + "pinpoint-bootstrap-1.7.1.jar")
+        @droplet.java_opts.add_system_property('pinpoint.agentId', @application.details['application_name'])
+        @droplet.java_opts.add_system_property('pinpoint.applicationName', @application.details['application_name'])
+
+        #@droplet.environment_variables.add_environment_variable('PINPOINT_PROFILER_COLLECTOR_IP', credentials['collector_ip'])
+        #@droplet.java_opts.add_system_property('PINPOINT_PROFILER_COLLECTOR_IP', )
       end
 
-      #protected
+      protected
 
       # (see JavaBuildpack::Component::VersionedDependencyComponent#supports?)
       def supports?
-      #  (@application.services.one_service? FILTER, 'server') &&
-      #  !(@application.services.one_service? FILTER, 'tenant') &&
-      #  !(@application.services.one_service? FILTER, 'tenanttoken')
+        @application.services.one_service? FILTER
       end
-	    
-	    
 
       private
 
+      PINPOINT_AGENTID = 'agentId'
+
+      PINPOINT_APPLICATIONNAME = 'applicationName'
+
+      PINPOINT_PROFILER_COLLECTOR_IP = 'collectorIp'
+
+      PINPOINT_PROFILER_COLLECTOR_TCP_PORT = 'collectorTcpPort'
+
+      PINPOINT_PROFILER_COLLECTOR_STAT_PORT = 'collectorStatPort'
+
+      PINPOINT_PROFILER_COLLECTOR_SPAN_PORT = 'collectorSpanPort'
+
       FILTER = /pinpoint/
 
-      private_constant :FILTER
-	    
-      def pinpointconf
-        @droplet.sandbox + 'pinpoint.config'
-      end
 
-      def agent_dir
-        @droplet.sandbox + 'agent'
-      end
+      private_constant :PINPOINT_AGENTID, :PINPOINT_APPLICATIONNAME, :PINPOINT_PROFILER_COLLECTOR_IP, 
+                       :PINPOINT_PROFILER_COLLECTOR_TCP_PORT, :PINPOINT_PROFILER_COLLECTOR_STAT_PORT,
+                       :PINPOINT_PROFILER_COLLECTOR_SPAN_PORT, :FILTER
 
-      def agent_path
-        agent_dir + 'pinpoint-bootstrap-1.8.0.jar'
-      end
+    
 
-      def agent_name
-        @configuration['default_agent_name'] || "#{@application.details['application_name']}_#{profile_name}"
-      end
-	    
-      def app_name
-        @configuration['default_agent_name'] || "#{@application.details['application_name']}_#{profile_name}"
-      end
+      def download_pinpoint_config(pinpoint_config_uri)
 
-      def expand(file)
-        with_timing "Expanding Pinpoint agent to #{@droplet.sandbox.relative_path_from(@droplet.root)}" do
+        with_timing "downloading pinpoint.config to #{@droplet.sandbox.relative_path_from(@droplet.root)}" do
           Dir.mktmpdir do |root|
             root_path = Pathname.new(root)
-            shell "tar -xvf  #{file.path} -d #{root_path} 2>&1"
-            unpack_agent root_path
+            @logger.info { "root path is.... #{root_path}"}
+            shell "wget -O pinpoint.config #{pinpoint_config_uri}"           
+            FileUtils.mkdir_p(@droplet.sandbox)
+            @logger.info { "droplet.sandbox is #{@droplet.sandbox}"}
+            FileUtils.mv("./pinpoint.config", @droplet.sandbox)
+             @logger.info { "Moved pinpoint config"}
           end
         end
+
       end
 
-      
-
-      def unpack_agent(root)
-        FileUtils.mkdir_p(agent_dir)        
-		FileUtils.mv(root + 'agent' +  'boot', agent_dir)
-		FileUtils.mv(root + 'agent' + 'lib', agent_dir)
-		FileUtils.mv(root + 'agent' +  'plugin', agent_dir)
-		FileUtils.mv(root + 'agent' +  'script', agent_dir)
-		FileUtils.mv(root + 'agent' + 'tools', agent_dir)
-		FileUtils.mv(root + 'agent' + 'pinpoint.config', agent_dir)
-        #FileUtils.mv(root + 'agent' + agent_unpack_path + lib_name, agent_dir)
-      end
-
-      
     end
 
   end
